@@ -4,3 +4,9 @@ android/
 release/
 final_app/
 *.log
+release-pc/
+final_app/
+dist/
+android/app/build/
+*.exe
+*.apk

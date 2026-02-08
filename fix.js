@@ -2,48 +2,38 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-console.log('>>> ФИКС БИЛДА И СБОРКА <<<');
+const ROOT = process.cwd();
 
-// 1. Исправляем package.json (отключаем установщик, делаем просто папку с EXE)
-const pkgPath = path.join(process.cwd(), 'package.json');
-const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-
-pkg.build.win = {
-  // "dir" = просто распакованная папка. Это обходит ошибку 7zip.
-  "target": "dir", 
-  "icon": "build/icon.ico",
-  "verifyUpdateCodeSignature": false
-};
-
-fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
-console.log('1. package.json исправлен (режим dir)');
-
-// 2. Очищаем кэш electron-builder (удаляем битый архив)
-const cachePath = path.join(process.env.LOCALAPPDATA, 'electron-builder', 'Cache');
-if (fs.existsSync(cachePath)) {
-  try {
-    fs.rmSync(cachePath, { recursive: true, force: true });
-    console.log('2. Кэш electron-builder очищен');
-  } catch (e) {
-    console.log('2. Не удалось очистить кэш (не страшно):', e.message);
+function run(cmd, args, opts = {}) {
+  console.log(`\n> ${cmd} ${args.join(' ')}`);
+  const r = spawnSync(cmd, args, { stdio: 'inherit', shell: true, ...opts });
+  if (r.status !== 0) {
+    console.error(`❌ Ошибка выполнения команды: ${cmd}`);
+    process.exit(1);
   }
 }
 
-// 3. Собираем
-console.log('3. Запуск сборки...');
-const isWin = process.platform === 'win32';
-const npm = isWin ? 'npm.cmd' : 'npm';
+async function build() {
+  const jbrPath = "C:\\Program Files\\Android\\Android Studio\\jbr";
+  if (fs.existsSync(jbrPath)) process.env.JAVA_HOME = jbrPath;
 
-const build = spawnSync(npm, ['run', 'electron:build:win'], { 
-  stdio: 'inherit', 
-  shell: true 
-});
+  console.log('📦 1. Собираем веб-версию...');
+  run('npm', ['run', 'build']);
 
-if (build.status === 0) {
-  console.log('\n✅ ГОТОВО!');
-  console.log('Твой EXE файл находится здесь:');
-  console.log(path.join(process.cwd(), 'release', 'win-unpacked', 'OrionGram.exe'));
-  console.log('\n(Запускай этот файл, это готовое приложение)');
-} else {
-  console.log('\n❌ Ошибка сборки.');
+  console.log('🔄 2. Синхронизируем Capacitor...');
+  run('npx', ['cap', 'sync', 'android']);
+
+  console.log('🏗 3. Собираем APK через Gradle...');
+  const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
+  run(gradlew, ['assembleDebug'], { cwd: path.join(ROOT, 'android') });
+
+  const apkPath = path.join(ROOT, 'android/app/build/outputs/apk/debug/app-debug.apk');
+  if (fs.existsSync(apkPath)) {
+    console.log('\n=========================================');
+    console.log('🎉 УСПЕХ! Приложение собрано.');
+    console.log('📂 APK файл тут: ' + apkPath);
+    console.log('=========================================');
+  }
 }
+
+build();

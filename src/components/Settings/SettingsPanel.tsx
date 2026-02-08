@@ -9,9 +9,10 @@ import {
   Close, DarkMode, LightMode, Notifications, Lock, Palette,
   Language, Info, Logout, Person, Edit, AlternateEmail, Phone,
   PhotoCamera, Check, ArrowBack,
-} from '@mui/icons-material';
+  SystemUpdateAlt } from '@mui/icons-material';
 import { useStore } from '../../stores/chatStore';
 import { m3 } from '../../theme/material3';
+import { isDesktopApp } from '../../utils/platform';
 import { logout, updateMyProfile, getMyProfile } from '../../api/auth';
 import { uploadAvatar } from '../../api/chats';
 
@@ -22,6 +23,7 @@ export const SettingsPanel: React.FC = () => {
   const setSettingsOpen = useStore(s => s.setSettingsOpen);
   const myProfile = useStore(s => s.myProfile);
   const setMyProfile = useStore(s => s.setMyProfile);
+  const setUpdateBanner = useStore(s => s.setUpdateBanner);
   const t = m3[themeMode];
   const isMobile = useMediaQuery('(max-width: 768px)');
   const notificationsEnabled = useStore(s => s.notificationsEnabled);
@@ -100,7 +102,42 @@ export const SettingsPanel: React.FC = () => {
         </Box>
         <Divider sx={{ borderColor: t.outlineVariant + '44' }} />
         <List sx={{ flex: 1, overflow: 'auto', py: 0.5 }}>
-          <ListItemButton onClick={openEdit} sx={{ borderRadius: '12px', mx: 1, my: 0.2 }}>
+          
+          {isDesktopApp() && (
+            <ListItemButton
+              onClick={async () => {
+                try {
+                  const r = await window.electronAPI?.checkUpdates?.();
+                  if (!r) return;
+
+                  if (!r.ok) {
+                    alert('Ошибка проверки обновлений: ' + r.error);
+                    return;
+                  }
+
+                  if (r.updateAvailable) {
+                    setUpdateBanner({ open: true, latestVersion: r.latest, url: r.url });
+                  } else {
+                    alert(`Обновлений нет. Текущая версия: ${r.current}`);
+                  }
+                } catch (e: any) {
+                  alert(e?.message || 'Ошибка');
+                }
+              }}
+              sx={{ borderRadius: '12px', mx: 1, my: 0.2 }}
+            >
+              <ListItemIcon sx={{ color: t.onSurfaceVariant, minWidth: 40 }}>
+                <SystemUpdateAlt />
+              </ListItemIcon>
+              <ListItemText
+                primary="Проверить обновления"
+                secondary="GitHub Releases"
+                primaryTypographyProps={{ sx: { color: t.onSurface } }}
+                secondaryTypographyProps={{ sx: { color: t.onSurfaceVariant } }}
+              />
+            </ListItemButton>
+          )}
+<ListItemButton onClick={openEdit} sx={{ borderRadius: '12px', mx: 1, my: 0.2 }}>
             <ListItemIcon sx={{ color: t.onSurfaceVariant, minWidth: 40 }}><Person /></ListItemIcon>
             <ListItemText primary="Редактировать профиль" secondary={myProfile?.username ? `@${myProfile.username}` : 'Установите юзернейм'}
               primaryTypographyProps={{ sx: { color: t.onSurface } }} secondaryTypographyProps={{ sx: { color: t.onSurfaceVariant } }} />

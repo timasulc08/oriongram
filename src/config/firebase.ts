@@ -9,7 +9,7 @@ import { getStorage } from 'firebase/storage';
 //  2. Firestore Database -> Create (test mode)
 //  3. Storage -> Create (test mode)
 // ==============================================
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyDb8euKde3JvHsxbYkhkH1T04XN7OfkQwA",
   authDomain: "oniongram.firebaseapp.com",
   projectId: "oniongram",

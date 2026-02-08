@@ -1,15 +1,31 @@
 export {};
+
 declare global {
   interface Window {
-    global: typeof globalThis;
     electronAPI?: {
-      platform: string;
       isElectron: boolean;
-      showNotification: (data: { title: string; body: string; avatar?: string }) => Promise<void>;
-      focusWindow: () => Promise<void>;
+      checkUpdates: () => Promise<
+        | { ok: true; updateAvailable: boolean; current: string; latest: string; url: string }
+        | { ok: false; error: string; tag?: string }
+      >;
+      openExternal: (url: string) => Promise<void>;
+      onGoogleAuthSuccess: (callback: (token: string) => void) => void;
     };
-    Capacitor?: {
-      getPlatform: () => string;
+  }
+}
+
+
+// ===== Electron update checker API =====
+declare global {
+  interface Window {
+    electronAPI?: {
+      isElectron: boolean;
+      checkUpdates: () => Promise<
+        | { ok: true; updateAvailable: boolean; current: string; latest: string; url: string }
+        | { ok: false; error: string; tag?: string }
+      >;
+      openExternal: (url: string) => Promise<void>;
+      onGoogleAuthSuccess: (callback: (token: string) => void) => void;
     };
   }
 }

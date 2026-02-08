@@ -1,294 +1,110 @@
-const { app, BrowserWindow, Menu, Tray, nativeImage, shell, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('path');
+const http = require('http');
+const handler = require('serve-handler');
 
 let mainWindow;
-let tray;
-let notifWindow = null;
-let notifTimeout = null;
 
-function createWindow() {
+// 1. РЕГИСТРАЦИЯ ПРОТОКОЛА (Исправлено для Windows)
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('oriongram', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('oriongram');
+}
+
+// 2. ОДИНОЧНЫЙ ЗАПУСК (Фикс ошибки дублирования)
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine) => {
+    // Если кто-то пытается запустить вторую копию (например, через ссылку)
+    const url = commandLine.find(arg => arg.startsWith('oriongram://'));
+    if (url) handleDeepLink(url);
+    
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
+// 3. ЛОКАЛЬНЫЙ СЕРВЕР
+async function startLocalServer() {
+  const server = http.createServer((req, res) => {
+    return handler(req, res, {
+      public: path.join(__dirname, '../dist'),
+      rewrites: [{ source: '**', destination: '/index.html' }]
+    });
+  });
+
+  return new Promise(resolve => {
+    server.listen(0, '127.0.0.1', () => {
+      resolve(server.address().port);
+    });
+  });
+}
+
+// 4. ОБРАБОТКА ТОКЕНА ИЗ БРАУЗЕРА
+function handleDeepLink(url) {
+  if (!url || !mainWindow) return;
+  console.log('Получена ссылка:', url);
+  
+  const urlParts = url.split('token=');
+  if (urlParts.length > 1) {
+    // 1. Берем часть после token=
+    // 2. Отрезаем всё после амперсанда (если есть другие параметры)
+    // 3. УДАЛЯЕМ лишний слэш в конце, который добавляет Windows!
+    let token = urlParts[1].split('&')[0];
+    token = token.replace(/\/$/, ""); // Удаляет / если он есть в самом конце
+    
+    const cleanToken = decodeURIComponent(token);
+    
+    // Отправляем чистый токен в React
+    mainWindow.webContents.send('google-auth-success', cleanToken);
+    
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
+
+// 5. СОЗДАНИЕ ОКНА
+async function createWindow() {
+  const port = await startLocalServer();
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    minWidth: 420,
-    minHeight: 600,
+    backgroundColor: '#141218',
     frame: false,
     titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#141218',
-      symbolColor: '#E6E0E9',
-      height: 36,
-    },
-    backgroundColor: '#141218',
-    icon: path.join(__dirname, '../build/icon.png'),
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-    },
-    show: false,
-  });
-
-  mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
-
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-  });
-
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
-    return { action: 'deny' };
-  });
-
-  mainWindow.on('close', (e) => {
-    if (!app.isQuitting) {
-      e.preventDefault();
-      mainWindow.hide();
-    }
-  });
-}
-
-// ==================== CUSTOM NOTIFICATION WINDOW ====================
-function showCustomNotification(title, body, avatar) {
-  // Закрываем предыдущую
-  if (notifWindow && !notifWindow.isDestroyed()) {
-    notifWindow.close();
-  }
-  clearTimeout(notifTimeout);
-
-  const display = screen.getPrimaryDisplay();
-  const { width: screenW, height: screenH } = display.workAreaSize;
-  const notifW = 360;
-  const notifH = 90;
-  const padding = 16;
-
-  notifWindow = new BrowserWindow({
-    width: notifW,
-    height: notifH,
-    x: screenW - notifW - padding,
-    y: screenH - notifH - padding,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    focusable: false,
-    webPreferences: {
-      nodeIntegration: false,
       contextIsolation: true,
-    },
-  });
-
-  // Escape HTML
-  const safeTitle = title.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const safeBody = body.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])).slice(0, 80);
-  const initial = safeTitle.charAt(0).toUpperCase();
-
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    font-family: 'Segoe UI', 'Inter', sans-serif;
-    background: transparent;
-    overflow: hidden;
-    cursor: pointer;
-  }
-  .notif {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
-    margin: 4px;
-    background: rgba(33, 31, 38, 0.95);
-    backdrop-filter: blur(20px);
-    border-radius: 16px;
-    border: 1px solid rgba(208, 188, 255, 0.15);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
-    animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    transition: opacity 0.3s, transform 0.3s;
-  }
-  .notif:hover {
-    background: rgba(43, 41, 48, 0.98);
-    transform: scale(1.02);
-  }
-  .notif.hiding {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateX(40px) scale(0.9); }
-    to { opacity: 1; transform: translateX(0) scale(1); }
-  }
-  .avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #D0BCFF, #7D5260);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-size: 18px;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-  .avatar img {
-    width: 100%;
-    height: 100%;
-    border-radius: 14px;
-    object-fit: cover;
-  }
-  .content {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-  }
-  .title {
-    color: #E6E0E9;
-    font-size: 13px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 2px;
-  }
-  .body {
-    color: #CAC4D0;
-    font-size: 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .app {
-    color: #D0BCFF;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    margin-bottom: 2px;
-  }
-  .close {
-    width: 24px;
-    height: 24px;
-    border-radius: 8px;
-    border: none;
-    background: rgba(255,255,255,0.08);
-    color: #CAC4D0;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity 0.2s, background 0.2s;
-  }
-  .notif:hover .close { opacity: 1; }
-  .close:hover { background: rgba(255,255,255,0.15); }
-</style>
-</head>
-<body>
-<div class="notif" id="notif" onclick="handleClick()">
-  <div class="avatar">
-    ${avatar ? '<img src="' + avatar + '" />' : initial}
-  </div>
-  <div class="content">
-    <div class="app">ORIONGRAM</div>
-    <div class="title">${safeTitle}</div>
-    <div class="body">${safeBody}</div>
-  </div>
-  <button class="close" onclick="event.stopPropagation(); handleClose()">✕</button>
-</div>
-<script>
-  function handleClick() {
-    const { ipcRenderer } = require('electron');
-    // Не можем использовать ipcRenderer напрямую, закрываем окно
-    window.close();
-  }
-  function handleClose() {
-    document.getElementById('notif').classList.add('hiding');
-    setTimeout(() => window.close(), 300);
-  }
-</script>
-</body>
-</html>`;
-
-  notifWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-
-  notifWindow.on('closed', () => { notifWindow = null; });
-
-  // По клику на окно — показываем главное
-  notifWindow.webContents.on('before-input-event', () => {
-    mainWindow.show();
-    mainWindow.focus();
-  });
-
-  // Автозакрытие через 5 сек
-  notifTimeout = setTimeout(() => {
-    if (notifWindow && !notifWindow.isDestroyed()) {
-      notifWindow.close();
+      nodeIntegration: false
     }
-  }, 5000);
-}
-
-function createTray() {
-  const iconPath = path.join(__dirname, '../build/icon.png');
-  let trayIcon;
-  try {
-    trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
-  } catch {
-    trayIcon = nativeImage.createEmpty();
-  }
-
-  tray = new Tray(trayIcon);
-  tray.setToolTip('OrionGram');
-
-  const contextMenu = Menu.buildFromTemplate([
-    { label: 'Открыть', click: () => { mainWindow.show(); mainWindow.focus(); } },
-    { type: 'separator' },
-    { label: 'Выход', click: () => { app.isQuitting = true; app.quit(); } },
-  ]);
-
-  tray.setContextMenu(contextMenu);
-  tray.on('double-click', () => { mainWindow.show(); mainWindow.focus(); });
-}
-
-// IPC
-ipcMain.handle('show-notification', (event, data) => {
-  showCustomNotification(data.title, data.body, data.avatar);
-  // Показываем главное окно при клике
-  if (mainWindow && !mainWindow.isVisible()) {
-    // Не показываем, просто уведомление
-  }
-});
-
-ipcMain.handle('focus-window', () => {
-  if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
-});
-
-// Запуск
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
-  Menu.setApplicationMenu(null);
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    else mainWindow.show();
   });
-});
+
+  mainWindow.loadURL(`http://127.0.0.1:${port}`);
+
+  // Обработка ссылок для macOS
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    handleDeepLink(url);
+  });
+}
+
+// ЗАПУСК ПРИЛОЖЕНИЯ
+app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Единственный экземпляр
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', () => {
-    if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
-  });
-}
+// ОБРАБОТЧИКИ СОБЫТИЙ (IPC)
+ipcMain.handle('open-external', async (event, url) => {
+  shell.openExternal(url);
+});

@@ -19,6 +19,7 @@
   "dependencies": {
     "@capacitor/local-notifications": "^6.0.0",
     "@capacitor/push-notifications": "^6.0.0",
+    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.4.0",
@@ -30,6 +31,8 @@
     "peerjs": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "semver": "^7.7.4",
+    "serve-handler": "^6.1.6",
     "uuid": "^11.0.0",
     "zustand": "^5.0.0"
   },
@@ -67,8 +70,18 @@
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico"
     },

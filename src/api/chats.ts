@@ -154,20 +154,23 @@ async function findDirectChat(uid1: string, uid2: string): Promise<string | null
   return null;
 }
 
-export function subscribeChats(callback: (chats: Chat[]) => void) {
-  const myId = getCurrentUserId();
+export function subscribeChats(myId: string, callback: (chats: Chat[]) => void) {
   if (!myId) return () => {};
+
   const q2 = query(collection(db, 'chats'), where('members', 'array-contains', myId));
   return onSnapshot(q2, async (snap) => {
     const chats: Chat[] = [];
+
     for (const d of snap.docs) {
       const data = d.data();
       let title = data.title;
       let avatarUrl = '';
       const isSaved = data.isSavedMessages === true;
       let online = false;
-      if (isSaved) title = 'Избранное';
-      else if (!data.isGroup && data.members.length === 2) {
+
+      if (isSaved) {
+        title = 'Избранное';
+      } else if (!data.isGroup && data.members?.length === 2) {
         const otherId = data.members.find((m: string) => m !== myId);
         if (otherId) {
           try {
@@ -181,30 +184,48 @@ export function subscribeChats(callback: (chats: Chat[]) => void) {
           } catch {}
         }
       }
+
       const lastDate = data.lastMessageDate || 0;
       const dd = new Date(lastDate);
       const now = new Date();
       let time = '';
       if (lastDate) {
-        if (dd.toDateString() === now.toDateString()) time = dd.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-        else time = dd.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+        time =
+          dd.toDateString() === now.toDateString()
+            ? dd.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+            : dd.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
       }
+
       const readKey = `og_read_${d.id}`;
       const lastRead = parseInt(localStorage.getItem(readKey) || '0', 10);
-      let unread = 0;
-      if (lastDate > lastRead && !isSaved) unread = 1;
+      const unread = !isSaved && lastDate > lastRead ? 1 : 0;
+
       chats.push({
-        id: d.id, title, lastMessage: data.lastMessage || '', time,
-        lastMessageDate: lastDate, unread, avatar: isSaved ? '⭐' : title.charAt(0).toUpperCase(),
-        avatarUrl, online, typing: false, isChannel: data.isChannel || false, isGroup: data.isGroup || false,
-        isMuted: false, pinned: isSaved, members: data.members || [], isSavedMessages: isSaved,
+        id: d.id,
+        title,
+        lastMessage: data.lastMessage || '',
+        time,
+        lastMessageDate: lastDate,
+        unread,
+        avatar: isSaved ? '⭐' : title.charAt(0).toUpperCase(),
+        avatarUrl,
+        online,
+        typing: false,
+        isChannel: data.isChannel || false,
+        isGroup: data.isGroup || false,
+        isMuted: false,
+        pinned: isSaved,
+        members: data.members || [],
+        isSavedMessages: isSaved,
       });
     }
+
     chats.sort((a, b) => {
       if (a.isSavedMessages && !b.isSavedMessages) return -1;
       if (!a.isSavedMessages && b.isSavedMessages) return 1;
       return b.lastMessageDate - a.lastMessageDate;
     });
+
     callback(chats);
   });
 }

@@ -91,36 +91,54 @@ export interface CallState {
   videoEnabled: boolean;
 }
 
+export interface UpdateBannerState {
+  open: boolean;
+  latestVersion: string;
+  url: string;
+}
+
 interface Store {
+  // UI
   themeMode: 'light' | 'dark';
   loading: boolean;
   error: string;
 
+  // Auth
   isLoggedIn: boolean;
   authStep: 'checking' | 'login' | 'register' | 'done';
 
-  // Notification settings
+  // Notifications settings
   notificationsEnabled: boolean;
   notificationsSound: boolean;
 
+  // Panels / navigation
   currentChatId: string | null;
   settingsOpen: boolean;
   chatInfoOpen: boolean;
 
+  // Data
   myProfile: UserProfile | null;
   chats: Chat[];
   messages: Map<string, Msg[]>;
 
+  // Search
   searchQuery: string;
 
+  // Message UX
   contextMenu: ContextMenuState;
   replyingTo: Msg | null;
   editingMsg: Msg | null;
 
+  // Calls
   callState: CallState;
 
+  // Desktop updates banner
+  updateBanner: UpdateBannerState;
+
+  // Image preview
   imagePreview: string | null;
 
+  // ===== actions =====
   toggleTheme: () => void;
 
   setLoading: (v: boolean) => void;
@@ -153,6 +171,9 @@ interface Store {
   setCallState: (c: Partial<CallState>) => void;
   resetCallState: () => void;
 
+  setUpdateBanner: (u: Partial<UpdateBannerState>) => void;
+  hideUpdateBanner: () => void;
+
   setImagePreview: (url: string | null) => void;
 }
 
@@ -170,34 +191,47 @@ const defaultCallState: CallState = {
 };
 
 export const useStore = create<Store>((set, get) => ({
+  // UI
   themeMode: (localStorage.getItem('og_theme') as 'light' | 'dark') || 'dark',
   loading: false,
   error: '',
 
+  // Auth
   isLoggedIn: false,
   authStep: 'checking',
 
+  // Notifications settings
   notificationsEnabled: localStorage.getItem('og_notif_enabled') !== '0',
   notificationsSound: localStorage.getItem('og_notif_sound') !== '0',
 
+  // Panels / navigation
   currentChatId: null,
   settingsOpen: false,
   chatInfoOpen: false,
 
+  // Data
   myProfile: null,
   chats: [],
   messages: new Map(),
 
+  // Search
   searchQuery: '',
 
+  // Message UX
   contextMenu: { open: false, x: 0, y: 0, msg: null },
   replyingTo: null,
   editingMsg: null,
 
+  // Calls
   callState: defaultCallState,
 
+  // Desktop updates banner
+  updateBanner: { open: false, latestVersion: '', url: '' },
+
+  // Image preview
   imagePreview: null,
 
+  // ===== actions =====
   toggleTheme: () =>
     set((s) => {
       const next = s.themeMode === 'light' ? 'dark' : 'light';
@@ -278,6 +312,8 @@ export const useStore = create<Store>((set, get) => ({
   setCallState: (c) => set((s) => ({ callState: { ...s.callState, ...c } })),
   resetCallState: () => set({ callState: defaultCallState }),
 
+  setUpdateBanner: (u) => set((s) => ({ updateBanner: { ...s.updateBanner, ...u } })),
+  hideUpdateBanner: () => set({ updateBanner: { open: false, latestVersion: '', url: '' } }),
+
   setImagePreview: (url) => set({ imagePreview: url }),
 }));
-  
