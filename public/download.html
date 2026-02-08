@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OrionGram — Скачать</title>
+  <style>
+    :root{
+      --bg:#0f0d13; --card:#1d1b20; --card2:#211f26;
+      --text:#e6e0e9; --muted:#cac4d0;
+      --primary:#d0bcff; --primary2:#6750a4;
+      --border:rgba(208,188,255,.18);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 50% 0%, rgba(208,188,255,.18), transparent 60%), var(--bg);
+      color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center;
+      padding:24px;
+    }
+    .wrap{width:100%; max-width:920px}
+    .hero{
+      display:flex; gap:18px; align-items:center; margin-bottom:18px;
+    }
+    .logo{
+      width:64px; height:64px; border-radius:18px;
+      background: linear-gradient(135deg, var(--primary2), #7d5260);
+      display:flex; align-items:center; justify-content:center;
+      font-size:28px; box-shadow:0 12px 30px rgba(0,0,0,.35);
+      flex:0 0 auto;
+    }
+    h1{margin:0; font-size:28px; letter-spacing:.2px}
+    p{margin:6px 0 0; color:var(--muted)}
+    .grid{
+      display:grid; grid-template-columns: repeat(3, 1fr);
+      gap:14px;
+    }
+    @media (max-width:860px){ .grid{grid-template-columns:1fr} }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.02), transparent 60%), var(--card);
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:16px;
+      box-shadow:0 14px 40px rgba(0,0,0,.35);
+    }
+    .card h2{margin:0; font-size:16px}
+    .card small{color:var(--muted)}
+    .btn{
+      display:flex; align-items:center; justify-content:center;
+      gap:10px;
+      width:100%;
+      padding:12px 14px;
+      margin-top:12px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background: rgba(208,188,255,.12);
+      color:var(--text);
+      text-decoration:none;
+      font-weight:600;
+      transition: transform .12s ease, background .12s ease;
+      user-select:none;
+    }
+    .btn:hover{transform: translateY(-1px); background: rgba(208,188,255,.18);}
+    .btn.primary{
+      background: linear-gradient(135deg, var(--primary2), #7d5260);
+      border:none;
+    }
+    .btn.primary:hover{filter:brightness(1.05)}
+    .note{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.45;
+      background: var(--card2);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:14px;
+    }
+    code{background: rgba(255,255,255,.06); padding:2px 6px; border-radius:8px}
+    .footer{margin-top:14px; text-align:center; color:rgba(202,196,208,.7); font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="logo">✈</div>
+      <div>
+        <h1>OrionGram</h1>
+        <p>Скачай приложение для Windows / Android или открой веб‑версию.</p>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Windows (ПК)</h2>
+        <small>Установщик или portable‑версия</small>
+        <!-- ЗАМЕНИ ССЫЛКУ НА СВОЮ -->
+        <a class="btn primary" href="https://example.com/OrionGram-Setup.exe" download>
+          Скачать .exe
+        </a>
+        <a class="btn" href="https://example.com/OrionGram-portable.zip">
+          Скачать portable (.zip)
+        </a>
+      </div>
+
+      <div class="card">
+        <h2>Android</h2>
+        <small>APK для установки вручную</small>
+        <!-- ЗАМЕНИ ССЫЛКУ НА СВОЮ -->
+        <a class="btn primary" href="https://example.com/app-debug.apk" download>
+          Скачать APK
+        </a>
+        <div class="note" style="margin-top:12px">
+          Если телефон блокирует установку: <br/>
+          Настройки → Безопасность → Разрешить установку из неизвестных источников.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Web‑версия</h2>
+        <small>Открыть в браузере</small>
+        <!-- ЗАМЕНИ ССЫЛКУ НА СВОЮ -->
+        <a class="btn primary" href="https://oniongram.web.app">
+          Открыть OrionGram
+        </a>
+        <div class="note" style="margin-top:12px">
+          Совет: открой в Chrome и добавь на главный экран (как приложение).
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      Чтобы разместить файлы для скачивания на Firebase Hosting:
+      <ol>
+        <li>Положи файлы в <code>public/</code> (например <code>public/app-debug.apk</code>, <code>public/OrionGram-Setup.exe</code>)</li>
+        <li>Собери и задеплой: <code>npm run build</code> → <code>firebase deploy --only hosting</code></li>
+      </ol>
+      Если файлы большие, лучше хранить их на GitHub Releases или Google Drive и вставить сюда ссылки.
+    </div>
+
+    <div class="footer">© OrionGram</div>
+  </div>
+</body>
+</html>

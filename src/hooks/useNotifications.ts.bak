@@ -1,0 +1,77 @@
+import { useEffect, useRef } from 'react';
+import { useStore } from '../stores/chatStore';
+import {
+  requestNotificationPermission,
+  showMessageNotification,
+  playNotificationSound,
+  initNativeNotificationClickHandler
+} from '../utils/notifications';
+
+export function useNotifications() {
+  const messages = useStore(s => s.messages);
+  const chats = useStore(s => s.chats);
+  const currentChatId = useStore(s => s.currentChatId);
+  const myProfile = useStore(s => s.myProfile);
+  const setCurrentChat = useStore(s => s.setCurrentChat);
+  const notificationsEnabled = useStore(s => s.notificationsEnabled);
+  const notificationsSound = useStore(s => s.notificationsSound);
+
+  const prevMsgCounts = useRef<Map<string, number>>(new Map());
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    initNativeNotificationClickHandler((chatId) => setCurrentChat(chatId));
+  }, []);
+
+  useEffect(() => {
+    if (!notificationsEnabled) return;
+    requestNotificationPermission();
+  }, [notificationsEnabled]);
+
+  useEffect(() => {
+    if (!notificationsEnabled) return;
+
+    // первая синхронизация — не уведомляем старые сообщения
+    if (!initialized.current) {
+      if (messages.size > 0) {
+        messages.forEach((msgs, chatId) => prevMsgCounts.current.set(chatId, msgs.length));
+        initialized.current = true;
+      }
+      return;
+    }
+
+    messages.forEach((msgs, chatId) => {
+      const prev = prevMsgCounts.current.get(chatId) || 0;
+      if (msgs.length <= prev) return;
+
+      const newMsgs = msgs.slice(prev);
+      const chat = chats.find(c => c.id === chatId);
+      if (!chat || chat.isSavedMessages) return;
+
+      for (const msg of newMsgs) {
+        if (msg.senderId === myProfile?.id) continue;
+        if (chatId === currentChatId && document.hasFocus()) continue;
+
+        const title = chat.title;
+        let body = msg.text || '';
+        if (!body) {
+          if (msg.mediaType === 'photo') body = '🖼 Фото';
+          else if (msg.mediaType === 'video') body = '🎥 Видео';
+          else if (msg.mediaType === 'document') body = '📎 ' + (msg.fileName || 'Файл');
+          else body = '[медиа]';
+        }
+
+        showMessageNotification({
+          title,
+          body,
+          avatar: chat.avatarUrl,
+          chatId,
+        });
+
+        if (notificationsSound) playNotificationSound();
+      }
+
+      prevMsgCounts.current.set(chatId, msgs.length);
+    });
+  }, [messages, chats, currentChatId, myProfile, notificationsEnabled, notificationsSound]);
+}

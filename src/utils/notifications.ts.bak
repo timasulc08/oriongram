@@ -1,0 +1,28 @@
+import { getPlatform } from './platform';
+
+export type NotifyPermission = NotificationPermission | 'unavailable';
+
+export async function requestNotificationPermission(): Promise<NotifyPermission> {
+  const platform = getPlatform();
+
+  // Electron — разрешение не нужно (кастомные окна)
+  if (platform === 'electron') return 'granted';
+
+  // Native (Capacitor)
+  if ((window as any).Capacitor) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      const res = await LocalNotifications.requestPermissions();
+      return res.display === 'granted' ? 'granted' : 'denied';
+    } catch {
+      return 'unavailable';
+    }
+  }
+
+  // Web / PWA
+  if (!('Notification' in window)) return 'unavailable';
+
+  // Тут вернётся 'default' | 'denied' | 'granted' — и это ок
+  const res = await Notification.requestPermission();
+  return res;
+}
